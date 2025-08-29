@@ -1,0 +1,482 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF Manager</title>
+<style>
+  /* Reset & base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0; padding: 0;
+    font-family: Arial, sans-serif;
+    background: #0b1a38;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  /* Navigation */
+  nav {
+    background: #132a5f;
+    display: flex;
+    justify-content: center;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: #a9c1f7;
+    font-size: 1.1rem;
+    padding: 1rem 2rem;
+    cursor: pointer;
+    transition: color 0.3s;
+  }
+  nav button.active,
+  nav button:hover {
+    color: #fff;
+    border-bottom: 3px solid #61b15a;
+  }
+  /* Container for sections */
+  main {
+    flex: 1;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  section {
+    background: #fff8e1;
+    color: #222;
+    border-radius: 15px;
+    padding: 2rem;
+    max-width: 450px;
+    width: 100%;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    display: none;
+  }
+  section.active {
+    display: block;
+  }
+  h1 {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px; 
+    font-weight: 900;
+  }
+  h1 img {
+    width: 32px;
+    height: 32px;
+  }
+  /* Upload form */
+  form {
+    margin-top: 1rem;
+  }
+  input[type="file"] {
+    margin-bottom: 1rem;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  button.upload-btn {
+    background: #4caf50;
+    border: none;
+    padding: 12px 25px;
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.3s;
+    width: 100%;
+  }
+  button.upload-btn:hover {
+    background: #3a8b39;
+  }
+  /* Search input */
+  input[type="search"] {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 1.5rem;
+    box-sizing: border-box;
+  }
+  /* File list */
+  ul.file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  ul.file-list li {
+    background: #f4f4f4;
+    color: #222;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  ul.file-list li .filename {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    word-break: break-word;
+    flex: 1;
+  }
+  ul.file-list li .filename img {
+    width: 20px;
+    height: 20px;
+  }
+  ul.file-list li .file-actions {
+    display: flex;
+    gap: 5px;
+  }
+  ul.file-list li button {
+    background: #1976d2;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.3s;
+  }
+  ul.file-list li button:hover {
+    background: #155a9c;
+  }
+  ul.file-list li button.delete-btn {
+    background: #d32f2f;
+  }
+  ul.file-list li button.delete-btn:hover {
+    background: #b71c1c;
+  }
+  .status-message {
+    margin-top: 1rem;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+  }
+  .status-success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  .status-error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  .loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #4caf50;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    section {
+      max-width: 100%;
+      margin: 0 1rem;
+    }
+    nav button {
+      padding: 1rem 1rem;
+      font-size: 1rem;
+    }
+    ul.file-list li {
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    ul.file-list li .file-actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <button class="active" data-section="upload">Upload PDF</button>
+  <button data-section="search">Search PDFs</button>
+  <button data-section="files">Uploaded Files</button>
+</nav>
+
+<main>
+  <section id="upload" class="active" aria-label="Upload PDF Section">
+    <h1><img src="https://img.icons8.com/ios-filled/50/000000/pdf.png" alt="PDF icon"/>PDF Manager</h1>
+    <form id="uploadForm">
+      <input type="file" id="pdfFile" accept="application/pdf" multiple />
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+      <button type="submit" class="upload-btn">Upload PDF(s)</button>
+    </form>
+    <div id="uploadStatus"></div>
+  </section>
+
+  <section id="search" aria-label="Search PDFs Section">
+    <h1>Search PDFs</h1>
+    <input type="search" id="searchInput" placeholder="Search PDFs..." aria-label="Search PDFs" />
+    <ul class="file-list" id="searchResults"></ul>
+  </section>
+
+  <section id="files" aria-label="Uploaded Files Section">
+    <h1>Uploaded Files</h1>
+    <button id="refreshFiles" style="margin-bottom: 1rem; padding: 8px 16px; background: #2196f3; color: white; border: none; border-radius: 5px; cursor: pointer;">Refresh List</button>
+    <ul class="file-list" id="fileList"></ul>
+  </section>
+</main>
+
+<script>
+  // Elements
+  const navButtons = document.querySelectorAll('nav button');
+  const sections = document.querySelectorAll('main section');
+  const uploadForm = document.getElementById('uploadForm');
+  const pdfFileInput = document.getElementById('pdfFile');
+  const fileListUI = document.getElementById('fileList');
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  const uploadStatus = document.getElementById('uploadStatus');
+  const refreshFilesBtn = document.getElementById('refreshFiles');
+  const progressBar = document.querySelector('.progress-bar');
+  const progressFill = document.querySelector('.progress-fill');
+
+  // Store files for search functionality
+  let allFiles = [];
+
+  // Switch sections on nav click
+  navButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      navButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      const sectionToShow = button.dataset.section;
+      sections.forEach(sec => {
+        sec.classList.toggle('active', sec.id === sectionToShow);
+      });
+      
+      // Load files when switching to files section
+      if (sectionToShow === 'files') {
+        loadUploadedFiles();
+      }
+    });
+  });
+
+  // Upload form handler
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const files = pdfFileInput.files;
+    
+    if (!files.length) {
+      showStatus('Please select at least one PDF file.', 'error');
+      return;
+    }
+
+    // Validate all files are PDFs
+    for (let file of files) {
+      if (file.type !== 'application/pdf') {
+        showStatus(`${file.name} is not a valid PDF file.`, 'error');
+        return;
+      }
+    }
+
+    uploadForm.classList.add('loading');
+    progressBar.style.display = 'block';
+    
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('pdf', file);
+        
+        // Update progress
+        const progress = ((i + 1) / files.length) * 100;
+        progressFill.style.width = `${progress}%`;
+        
+        try {
+          const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        showStatus(`Successfully uploaded ${successCount} file(s).${errorCount > 0 ? ` ${errorCount} failed.` : ''}`, 
+                  errorCount > 0 ? 'error' : 'success');
+        pdfFileInput.value = '';
+        loadUploadedFiles();
+      } else {
+        showStatus('All uploads failed. Please try again.', 'error');
+      }
+      
+    } catch (error) {
+      showStatus('Upload failed. Please try again.', 'error');
+    } finally {
+      uploadForm.classList.remove('loading');
+      progressBar.style.display = 'none';
+      progressFill.style.width = '0%';
+    }
+  });
+
+  // Load uploaded files from server
+  async function loadUploadedFiles() {
+    try {
+      const response = await fetch('/files');
+      const data = await response.json();
+      allFiles = data.files || [];
+      renderFileList();
+    } catch (error) {
+      console.error('Failed to load files:', error);
+      showStatus('Failed to load files.', 'error');
+    }
+  }
+
+  // Render file list
+  function renderFileList() {
+    fileListUI.innerHTML = '';
+    
+    if (allFiles.length === 0) {
+      fileListUI.innerHTML = '<li style="text-align: center; color: #666;">No files uploaded yet.</li>';
+      return;
+    }
+    
+    // Sort files alphabetically
+    allFiles.sort().forEach(filename => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="filename">
+          <img src="https://img.icons8.com/ios-filled/50/000000/pdf.png" alt="PDF icon" />
+          <span title="${filename}">${filename}</span>
+        </div>
+        <div class="file-actions">
+          <button class="download-btn" onclick="downloadFile('${filename}')" aria-label="Download ${filename}">Download</button>
+          <button class="delete-btn" onclick="deleteFile('${filename}')" aria-label="Delete ${filename}">Delete</button>
+        </div>
+      `;
+      fileListUI.appendChild(li);
+    });
+  }
+
+  // Download file
+  function downloadFile(filename) {
+    const link = document.createElement('a');
+    link.href = `/download/${encodeURIComponent(filename)}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Delete file
+  async function deleteFile(filename) {
+    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/delete/${encodeURIComponent(filename)}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        showStatus(`File "${filename}" deleted successfully.`, 'success');
+        loadUploadedFiles();
+        renderSearchResults(); // Update search results too
+      } else {
+        showStatus('Failed to delete file.', 'error');
+      }
+    } catch (error) {
+      showStatus('Failed to delete file.', 'error');
+    }
+  }
+
+  // Search functionality
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim().toLowerCase();
+    renderSearchResults(query);
+  });
+
+  function renderSearchResults(query = '') {
+    searchResults.innerHTML = '';
+    
+    if (!query) {
+      searchResults.innerHTML = '<li style="text-align: center; color: #666;">Enter a search query to find PDFs.</li>';
+      return;
+    }
+    
+    const filtered = allFiles.filter(filename => 
+      filename.toLowerCase().includes(query)
+    );
+    
+    if (filtered.length === 0) {
+      searchResults.innerHTML = '<li style="text-align: center; color: #666;">No matching PDFs found.</li>';
+      return;
+    }
+    
+    filtered.forEach(filename => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="filename">
+          <img src="https://img.icons8.com/ios-filled/50/000000/pdf.png" alt="PDF icon" />
+          <span title="${filename}">${filename}</span>
+        </div>
+        <div class="file-actions">
+          <button class="download-btn" onclick="downloadFile('${filename}')" aria-label="Download ${filename}">Download</button>
+          <button class="delete-btn" onclick="deleteFile('${filename}')" aria-label="Delete ${filename}">Delete</button>
+        </div>
+      `;
+      searchResults.appendChild(li);
+    });
+  }
+
+  // Refresh files button
+  refreshFilesBtn.addEventListener('click', loadUploadedFiles);
+
+  // Show status messages
+  function showStatus(message, type) {
+    uploadStatus.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+    setTimeout(() => {
+      uploadStatus.innerHTML = '';
+    }, 5000);
+  }
+
+  // Initialize the app
+  loadUploadedFiles();
+</script>
+</body>
+</html>
